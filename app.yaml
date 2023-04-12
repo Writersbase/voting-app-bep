@@ -1,0 +1,9 @@
+runtime: nodejs10
+
+env_variables:
+  MONGO_URI: "mongodb+srv://writers:writers@cluster0.ekpy5.mongodb.net"
+  DB_NAME: "blog-cms"
+  DB_ERROR_LOGS: "blog-cms-logger"
+  TOKEN_SECRET: "958c17d8-64d9-4ab7-b146-70d1780a33e1-8963312F-04E5-4511-B520-A5EB7E21662B"
+  ND_EMAIL: "paulakeju@gmail.com"
+  ND_PASS: "lyxwgchctnkutyvw"
