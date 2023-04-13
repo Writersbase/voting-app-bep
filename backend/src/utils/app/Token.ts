@@ -15,9 +15,9 @@ class Token {
         this.token = token;
     }
 
-    createLoginToken(loggingSession: ILoginSession){
+    createLoginToken(loggingSession){
 
-        const data = {user: loggingSession.user, uuid: loggingSession.uuid,id: loggingSession.id};
+        const data = {token: loggingSession.token, uuid: loggingSession.uuid,id: loggingSession.id};
         const token = Jwt.sign({data: data},process.env.TOKEN_SECRET,{expiresIn: '168h'})
         return token;
 

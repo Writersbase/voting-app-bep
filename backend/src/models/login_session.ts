@@ -6,7 +6,7 @@ const mongoosePaginate = require('mongoose-paginate-v2');
 
 const LoginSessionSchema = new Schema<ILoginSession>({
         uuid: {type: String, index: true, trim: true, required: true},
-        user: {type: Schema.Types.ObjectId, required: true, ref: 'User'},
+        token: {type: String,required: true},
         status: {type: Number, enum: Object.values(BIT), default: BIT.OFF},
         validity_end_date: {type: Date, default: new Date(Date.now() + 604800000)},
         logged_out: {type: Boolean, default: false},
@@ -23,7 +23,7 @@ const LoginSessionSchema = new Schema<ILoginSession>({
 
 export interface ILoginSession {
     uuid: string,
-    user: any,
+    token: any,
     status: number,
     validity_end_date: Date,
     logged_out: boolean,

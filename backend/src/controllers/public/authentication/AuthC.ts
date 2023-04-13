@@ -24,9 +24,10 @@ class AuthC extends BaseControllerClass {
     }
 
     protected initRoutes(): void {
-        this.register();
-        this.login();
+        // this.register();
+        // this.login();
         this.generateCredentials();
+        this.loginAdmin()
     }
 
     protected initServices(): void {
@@ -38,6 +39,8 @@ class AuthC extends BaseControllerClass {
     protected initMiddleware(): void {
         this.authCMiddlware = new AuthCMiddleware(this.router);
     }
+
+
 
 
     generateCredentials(){
@@ -116,7 +119,48 @@ class AuthC extends BaseControllerClass {
                 return this.sendErrorResponse(res,e,this.errorResponseMessage.GENERATOR_FAILED,400)
             }
 
-       
+
+        })
+    }
+
+    loginAdmin(){
+        this.router.post('/login',async (req,res) => {
+            try{
+                const {token} = req.body;
+                console.log(token)
+                const ip_address = requestIp.getClientIp(req);
+                console.log(ip_address)
+                const findToken = await this.tokenService.findOne({token:token,ip_address:ip_address});
+                console.log(findToken)
+                const tokenTime = new Date(findToken?.expiring).getTime();
+                if(findToken && tokenTime > Date.now()){
+                //     authenticate user
+                    let newLoggingSession = await this.sessionService.save({uuid: uuidV4(),token: findToken?.token,status: BIT.ON});
+                    console.log(newLoggingSession)
+                    if(newLoggingSession){
+                        let genToken = this.token.build().createLoginToken(newLoggingSession);
+                        console.log(genToken)
+                        if(genToken){
+                            return this.sendSuccessResponse(res,{
+                                client: findToken,
+                                token: genToken,
+                            })
+                        }else{
+                            const err = new Error('unable to login1');
+                            return this.sendErrorResponse(res,err,this.errorResponseMessage.UNABLE_TO_LOGIN,400)
+                        }
+                    }else{
+                        const err = new Error('unable to login2');
+                        return this.sendErrorResponse(res,err,this.errorResponseMessage.UNABLE_TO_LOGIN,400)
+                    }
+                }else{
+                    const err = new Error('unable to login3');
+                    return this.sendErrorResponse(res,err,this.errorResponseMessage.UNABLE_TO_LOGIN,400)
+                //     error message
+                }
+            }catch (e) {
+                return this.sendErrorResponse(res,e,this.errorResponseMessage.UNABLE_TO_LOGIN,400)
+            }
         })
     }
 
