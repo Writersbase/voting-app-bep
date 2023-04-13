@@ -31,7 +31,7 @@ const port: any = process.env.PORT || 3000;
 const mongooseOptions:any = {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    dbName:"blog-cms"
+    dbName:process.env.DB_NAME
 }
 
 new DatabaseBuilder()

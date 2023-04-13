@@ -1,20 +1,22 @@
 import BaseControllerClass from "../../base/BaseControllerClass";
-import {BIT, EMAIL_VALIDATION, METHOD, OTP_TYPE, PASSWORD_VALIDATION} from "../../../constants/AppConstants";
+import {BIT, METHOD} from "../../../constants/AppConstants";
 import HashBuilder, {IHash} from "../../../utils/app/Hash";
-import UserService from "../../../services/UserService";
 import AuthCMiddleware from "../../../middleware/public/AuthC_Middleware";
-import authC_Middleware from "../../../middleware/public/AuthC_Middleware";
 import SessionService from "../../../services/SessionService";
 import { v4 as uuidV4} from 'uuid';
 import TokenBuilder from "../../../utils/app/Token";
-import OtpService from "../../../services/OtpService";
-
+import TokenService from "../../../services/TokenService";
+import BlacklistService from "../../../services/BlacklistService";
+import requestIp from 'request-ip';
+import mongoose from "mongoose";
 
 class AuthC extends BaseControllerClass {
     private hashService: HashBuilder;
     private authCMiddlware: AuthCMiddleware;
     private sessionService: SessionService;
     private token: TokenBuilder;
+    private tokenService: TokenService;
+    private blacklistService: BlacklistService;
     constructor() {
         super();
         this.hashService = new HashBuilder();
@@ -24,14 +26,98 @@ class AuthC extends BaseControllerClass {
     protected initRoutes(): void {
         this.register();
         this.login();
+        this.generateCredentials();
     }
 
     protected initServices(): void {
         this.sessionService = new SessionService();
+        this.tokenService = new TokenService()
+        this.blacklistService = new BlacklistService()
     }
 
     protected initMiddleware(): void {
         this.authCMiddlware = new AuthCMiddleware(this.router);
+    }
+
+
+    generateCredentials(){
+        this.router.post('/generate-token', async (req,res,next) => {
+            try{
+                const ip_address = requestIp.getClientIp(req);
+
+
+                //     check if existing token is active for a particular ip
+                const token = await this.tokenService.findOne({ip_address: ip_address,status:"active"});
+
+                const tokenTime = new Date(token?.expiring).getTime();
+                if(token && tokenTime > Date.now()){
+                    const err = new Error('existing token available for ip');
+                    return this.sendErrorResponse(res,err,this.errorResponseMessage.TOKEN_ACTIVE,400);
+                }
+
+                if(!token || tokenTime <= Date.now()){
+                    if(token && tokenTime <= Date.now()){
+                        token.expired = true;
+                        token.status = "deleted";
+                        token.save();
+                    }
+                    next();
+                }
+            }catch (e) {
+                return this.sendErrorResponse(res,e,this.errorResponseMessage.TOKEN_ACTIVE,400);
+            }
+        })
+        this.router.post('/generate-token', async (req,res,next) => {
+            try{
+                const ip_address = requestIp.getClientIp(req);
+                const session = await mongoose.startSession();
+                session.startTransaction();
+                const checkBlacklist = await this.blacklistService.findOne({ip_address:ip_address,status:"active"},session)
+                const blacklistTime = new Date(checkBlacklist?.blacklist_end).getTime();
+                if(blacklistTime > Date.now()){
+                    session.abortTransaction();
+                    const err = new Error(`you are currently blacklisted, try again on ${new Date(checkBlacklist.blacklist_end)}`);
+                    return this.sendErrorResponse(res,err,this.errorResponseMessage.BLACKLISTED(new Date(checkBlacklist.blacklist_end).toDateString()),400);
+                }
+
+                if(!checkBlacklist || blacklistTime < Date.now()) {
+
+                    if(checkBlacklist && blacklistTime < Date.now()){
+                        checkBlacklist.status = "deleted";
+                        checkBlacklist.save();
+                    }
+                    next();
+                }
+            }catch (e) {
+                return this.sendErrorResponse(res,e,this.errorResponseMessage.SERVER_ERROR,400);
+            }
+        })
+
+        this.router.post('/generate-token', async (req,res) => {
+            try{
+                const ip_address = requestIp.getClientIp(req);
+                const session = await mongoose.startSession();
+                session.startTransaction();
+
+                const newToken = await this.tokenService.save({ip_address:ip_address,token: uuidV4(),isAdmin: true},session);
+                const newBlacklist = await this.blacklistService.save({ip_address:ip_address},session)
+                if(newToken && newBlacklist){
+                    console.log(newToken);
+                    session.commitTransaction();
+                    return this.sendSuccessResponse(res,{token: newToken?.token})
+                }else{
+                    //     error
+                    session.abortTransaction();
+                    const err = new Error('new token not generated');
+                    return this.sendErrorResponse(res,err,this.errorResponseMessage.GENERATOR_FAILED,400)
+                }
+
+            }catch (e) {
+                return this.sendErrorResponse(res,e,this.errorResponseMessage.GENERATOR_FAILED,400)
+            }
+
+       
+        })
     }
 
 

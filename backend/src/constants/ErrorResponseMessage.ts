@@ -99,6 +99,25 @@ class ErrorResponseMessage {
         message: "invalid otp",
     };
 
+    public TOKEN_ACTIVE = {
+        response_code: 20,
+        message: "you have an active login token!",
+    };
+
+    public BLACKLISTED = (value: string) => {
+        return {response_code: 21,
+            message: `you are currently blacklisted, try again on ${value}`}
+    };
+
+    public GENERATOR_FAILED = {
+        response_code: 22,
+        message: "token could not be generated!",
+    };
+    public SERVER_ERROR = {
+        response_code: 23,
+        message: "server error..unable to complete request!",
+    };
+
 }
 
 export default ErrorResponseMessage;
